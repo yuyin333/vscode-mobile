@@ -26,22 +26,45 @@
     </div>
 </template>
 <script setup lang="ts">
-import { ref, computed, h } from "vue"
+import { ref, computed, h, onMounted, onUnmounted } from "vue"
 import { Button, Space, } from 'ant-design-vue'
 import { crop, chevronBack, chevronForward, chevronDown, newspaper, chevronUp, copy, logoNodejs, swapHorizontal } from 'ionicons/icons';
 import { IonIcon } from '@ionic/vue';
+import * as vscode from 'vscode'
 import { enableBottomShortcuts, symbols } from '../core/appConfigs'
 import { moveCursorByOffset, selection, copySelection, insertText2 } from '../core/shortcutFunctions'
-import { keyboard as keyboardStatus } from '../core/native/native_status'
 import { isEditorActive } from '../core/app'
 
 const currentInputBox = ref<HTMLElement>()
+
+// isEditorActive() 读的是 document.activeElement，本身不是响应式的；
+// 直接放进 computed 只在挂载时算一次，之后永远为 false（符号条不显示）。
+// 这里同时用 vscode 的 activeTextEditor 事件作为权威信号。
+const editorActive = ref(isEditorActive())
+const hasActiveEditor = ref(!!vscode.window.activeTextEditor)
+function refreshEditorActive() {
+    editorActive.value = isEditorActive()
+}
+vscode.window.onDidChangeActiveTextEditor((e) => {
+    hasActiveEditor.value = !!e
+    refreshEditorActive()
+})
+onMounted(() => {
+    document.addEventListener('focusin', refreshEditorActive, true)
+    document.addEventListener('focusout', () => setTimeout(refreshEditorActive, 0), true)
+    refreshEditorActive()
+})
+onUnmounted(() => {
+    document.removeEventListener('focusin', refreshEditorActive, true)
+})
 
 const show = computed<boolean>(() => {
     if (import.meta.env.DEV) {
         return enableBottomShortcuts.value
     }
-    return enableBottomShortcuts.value && keyboardStatus.value && isEditorActive()
+    // 原先只在软键盘弹出时显示：外接/蓝牙键盘或键盘未弹出时符号与光标按钮完全用不了。
+    // 改为「有活动编辑器」即显示，仍受 enableBottomShortcuts 开关控制。
+    return enableBottomShortcuts.value && hasActiveEditor.value
 })
 function updateInputBox() {
     currentInputBox.value = document.activeElement as HTMLElement
