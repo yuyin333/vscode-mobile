@@ -19,6 +19,10 @@
         </div>
         <div style="height: 100%;overflow: auto;flex: 1;">
             <Space.Compact class="warp" size="middle" wrap>
+                <!-- 触摸选区难定位时的兜底：整行/整词/全文，放在最前面保证不用横向滚动就能点到 -->
+                <Button class="button" type="text" @click="selectLine">行</Button>
+                <Button class="button" type="text" @click="selectWord">词</Button>
+                <Button class="button" type="text" @click="selectAll">全</Button>
                 <Button @click="inputText(symbol.insertText)" class="button" v-for="(symbol, i) in symbols" :key="i"
                     type="text">{{ symbol.hint }}</Button>
             </Space.Compact>
@@ -32,7 +36,7 @@ import { crop, chevronBack, chevronForward, chevronDown, newspaper, chevronUp, c
 import { IonIcon } from '@ionic/vue';
 import * as vscode from 'vscode'
 import { enableBottomShortcuts, symbols } from '../core/appConfigs'
-import { moveCursorByOffset, selection, copySelection, insertText2 } from '../core/shortcutFunctions'
+import { moveCursorByOffset, selection, copySelection, insertText2, execCommand } from '../core/shortcutFunctions'
 import { isEditorActive } from '../core/app'
 
 const currentInputBox = ref<HTMLElement>()
@@ -85,6 +89,16 @@ function inputText(str: string) {
 }
 function test(t: string) {
     console.log(t);
+}
+// 触摸选区在 Monaco 上很难精确点到，提供整行/整词/全文三种兜底选择
+function selectLine() {
+    return execCommand('expandLineSelection')
+}
+function selectWord() {
+    return execCommand('editor.action.smartSelect.expand')
+}
+function selectAll() {
+    return execCommand('editor.action.selectAll')
 }
 </script>
 <style scoped>
