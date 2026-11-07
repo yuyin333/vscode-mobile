@@ -4,7 +4,9 @@ import userConfiguration from '../features/userConfiguration'
 import { ref, watchEffect } from 'vue'
 import { useStorage } from '@vueuse/core'
 
-export const enable = useStorage<boolean>('prettier.enable', false)
+// 默认开启：VSIX 版 prettier 扩展依赖 extension-file:// 协议（WebView 里不可用，激活必然失败），
+// 所以「格式化」改走随包内置的 prettier，避免开箱即坏。
+export const enable = useStorage<boolean>('prettier.enable', true)
 const options: prettier.Options = {
     // parser: 'babel',
     // plugins: [babel, estree, typescript, html, markdown]
@@ -63,4 +65,26 @@ export async function prettierFormat() {
         builder.replace(fullRange, code)
     })
 }
+
+// 注册成标准「格式化文档」提供者：VS Code 的格式化命令/快捷键与工具栏共用内置 prettier，
+// 不再依赖激活失败的 VSIX 扩展（它需要 extension-file:// 协议，WebView 里不可用）。
+vscode.languages.registerDocumentFormattingEditProvider(
+    [{ language: 'javascript' }, { language: 'typescript' }, { language: 'json' }],
+    {
+        async provideDocumentFormattingEdits(document) {
+            await install()
+            const text = document.getText()
+            const formatted = await prettier.format(text, {
+                ...options,
+                filepath: document.fileName
+            })
+            if (formatted === text) return []
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(text.length)
+            )
+            return [vscode.TextEdit.replace(fullRange, formatted)]
+        }
+    }
+)
 install()

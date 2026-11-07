@@ -26,6 +26,8 @@ import getLanguageDetectionWorkerServiceOverride from '@codingame/monaco-vscode-
 import getStorageServiceOverride, { BrowserStorageService } from '@codingame/monaco-vscode-storage-service-override'
 import getExtensionServiceOverride from '@codingame/monaco-vscode-extensions-service-override'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker'
+import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import TextMateWorker from '@codingame/monaco-vscode-textmate-service-override/worker?worker'
 import OutputLinkComputerWorker from '@codingame/monaco-vscode-output-service-override/worker?worker'
 import ExtensionHostWorker from 'vscode/workers/extensionHost.worker?worker'
@@ -41,7 +43,13 @@ const workerLoaders: Partial<Record<string, WorkerLoader>> = {
     editorWorkerService: () => new (toCrossOriginWorker(EditorWorker))(),
     textMateWorker: () => new (toCrossOriginWorker(TextMateWorker))(),
     outputLinkComputer: () => new (toCrossOriginWorker(OutputLinkComputerWorker))(),
-    languageDetectionWorkerService: () => new (toCrossOriginWorker(LanguageDetectionWorker))()
+    languageDetectionWorkerService: () => new (toCrossOriginWorker(LanguageDetectionWorker))(),
+    // monaco-editor 自带的 TS/JSON 语言服务通过 label 申请 worker；
+    // 之前这里没有对应 loader，getWorker 直接抛 Unimplemented worker javascript (workerMain.js)，
+    // 于是 TS 语言服务退回主线程（智能提示卡顿）并且 extension host 也会连带失败。
+    javascript: () => new (toCrossOriginWorker(TsWorker))(),
+    typescript: () => new (toCrossOriginWorker(TsWorker))(),
+    json: () => new (toCrossOriginWorker(JsonWorker))()
 }
 window.MonacoEnvironment = {
     getWorker: function (moduleId, label) {
