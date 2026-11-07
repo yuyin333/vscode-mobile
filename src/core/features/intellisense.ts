@@ -7,6 +7,7 @@ import typescriptConsole from '../../../node_modules/@types/node/console.d.ts?ra
 import typescriptProcess from '../../../node_modules/@types/node/process.d.ts?raw'
 
 import { onExtHostInitialized } from 'vscode/extensions'
+import { loadPlugin } from '../native/autox'
 import '@codingame/monaco-vscode-json-language-features-default-extension'
 import '@codingame/monaco-vscode-typescript-language-features-default-extension'
 
@@ -96,3 +97,17 @@ monaco.languages.json.jsonDefaults.setModeConfiguration({
   ...monaco.languages.json.jsonDefaults.modeConfiguration,
   tokens: false // Disable monarch tokenizer as we use TextMate here
 })
+
+// AutoX 运行时类型：由原生 AppController.getApiTypes 下发（内容由
+// :codeeditor:generateAutoxTypes 从 autojs/src/main/js 的 .d.ts 合并生成），
+// 注册成全局 extraLib 后，auto / device / Autox.* 才会有补全与签名。
+loadPlugin<{ getApiTypes(): Promise<string> }>('AppController')
+  .then((plugin) => plugin.getApiTypes())
+  .then((types) => {
+    if (!types) return
+    const uri = 'file:///autox.d.ts'
+    monaco.languages.typescript.javascriptDefaults.addExtraLib(types, uri)
+    monaco.languages.typescript.typescriptDefaults.addExtraLib(types, uri)
+    console.log('AutoX types loaded:', types.length)
+  })
+  .catch((e) => console.warn('AutoX types unavailable:', e))
