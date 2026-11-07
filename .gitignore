@@ -33,3 +33,5 @@ npm-debug.log*
 /plugins
 /www
 release
+/dist.zip
+

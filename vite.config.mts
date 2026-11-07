@@ -24,6 +24,9 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
+    // 不产出 sourcemap：线上包里 .map 占了近 42MB（解压后），
+    // 手机端只会白白增加解压耗时与磁盘占用。
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {

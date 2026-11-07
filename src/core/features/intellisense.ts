@@ -9,9 +9,6 @@ import typescriptProcess from '../../../node_modules/@types/node/process.d.ts?ra
 import { onExtHostInitialized } from 'vscode/extensions'
 import '@codingame/monaco-vscode-json-language-features-default-extension'
 import '@codingame/monaco-vscode-typescript-language-features-default-extension'
-import '@codingame/monaco-vscode-html-language-features-default-extension'
-import '@codingame/monaco-vscode-css-language-features-default-extension'
-import '@codingame/monaco-vscode-markdown-language-features-default-extension'
 
 await new Promise<void>(resolve => onExtHostInitialized(resolve))
 
