@@ -6,6 +6,7 @@ import { IBaseApp } from "../native_interface";
 import { ref } from "vue";
 import AppController from "./AppController";
 import { applyImeHeight } from "../../features/imeInsets";
+import { applyAppTheme } from "../../features/appAppearance";
 
 getAutoxBridge().then(async (autox) => {
     autox.registerHandler('app.openFile', (data) => {
@@ -14,6 +15,10 @@ getAutoxBridge().then(async (autox) => {
     // 键盘遮挡高度（设备 px）：让工作区让位并把光标滚回可视区
     autox.registerHandler('app.onImeHeight', (data) => {
         applyImeHeight(Number(data) || 0)
+    })
+    // 主题随 App 夜间模式变化（运行时可切）
+    autox.registerHandler('app.onTheme', (data) => {
+        void applyAppTheme(String(data))
     })
     setTimeout(() => {
         autox.callHandler('app.init')

@@ -20,6 +20,7 @@ import '@codingame/monaco-vscode-media-preview-default-extension'
 
 
 import './features/userConfiguration'
+import './features/appAppearance'
 import './features/filesystem'
 import './features/customView'
 import './features/intellisense'

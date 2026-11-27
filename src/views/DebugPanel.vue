@@ -1,18 +1,18 @@
 <template>
     <div v-if="debugStopped" class="debug-panel">
         <div class="debug-row">
-            <span class="debug-pos">暂停 · 第 {{ debugStopped.line }} 行 · {{ debugStopped.reason }}</span>
-            <a class="debug-close" @click="onStop">停止</a>
+            <span class="debug-pos">{{ t('paused') }} · {{ t('line') }} {{ debugStopped.line }} · {{ debugStopped.reason }}</span>
+            <a class="debug-close" @click="onStop">{{ t('stop') }}</a>
         </div>
         <Space wrap :size="4">
-            <Button size="small" type="primary" @click="onStep('resume')">继续</Button>
-            <Button size="small" @click="onStep('stepOver')">跳过</Button>
-            <Button size="small" @click="onStep('stepInto')">进入</Button>
-            <Button size="small" @click="onStep('stepOut')">跳出</Button>
+            <Button size="small" type="primary" @click="onStep('resume')">{{ t('continue') }}</Button>
+            <Button size="small" @click="onStep('stepOver')">{{ t('stepOver') }}</Button>
+            <Button size="small" @click="onStep('stepInto')">{{ t('stepInto') }}</Button>
+            <Button size="small" @click="onStep('stepOut')">{{ t('stepOut') }}</Button>
         </Space>
         <div class="debug-row">
-            <Input v-model:value="expr" size="small" placeholder="表达式，如 auto.device.width" @pressEnter="onEval" />
-            <Button size="small" @click="onEval">求值</Button>
+            <Input v-model:value="expr" size="small" :placeholder="t('evalPlaceholder')" @pressEnter="onEval" />
+            <Button size="small" @click="onEval">{{ t('evaluate') }}</Button>
         </div>
         <div v-if="value" class="debug-value">{{ value }}</div>
     </div>
@@ -22,6 +22,7 @@
 import { ref } from 'vue'
 import { Space, Button, Input } from 'ant-design-vue'
 import { debugStopped, debugValue, step, stopDebug, evaluate } from '../core/features/debug'
+import { t } from '../core/i18n'
 
 const expr = ref('')
 const value = ref('')

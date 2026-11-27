@@ -4,47 +4,47 @@
         <Space.Compact class="warp" size="middle" wrap>
             <IonMenuToggle>
                 <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: menu })">
-                    <span>菜单</span></Button>
+                    <span>{{ t('menu') }}</span></Button>
             </IonMenuToggle>
             <Dropdown :trigger="['click']">
                 <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: document })">
-                    <span>文件</span></Button>
+                    <span>{{ t('file') }}</span></Button>
                 <template #overlay>
                     <Menu @click="">
-                        <menu-item @click="openFile">打开文件</menu-item>
+                        <menu-item @click="openFile">{{ t('openFile') }}</menu-item>
                         <menu-divider />
-                        <menu-item @click="openFolder">打开文件夹</menu-item>
+                        <menu-item @click="openFolder">{{ t('openFolder') }}</menu-item>
                     </Menu>
                 </template>
             </Dropdown>
             <Dropdown :trigger="['click']">
                 <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: pencil })">
-                    <span>编辑</span></Button>
+                    <span>{{ t('edit') }}</span></Button>
                 <template #overlay>
                     <Menu @click="onEditMenuClick">
                         <menu-item v-for="(menu, index) in editMenu" :key="index">
                             {{ menu }}
                         </menu-item>
                         <menu-divider />
-                        <menu-item :key="editMenu.length">格式化文档</menu-item>
+                        <menu-item :key="editMenu.length">{{ t('formatDocument') }}</menu-item>
                     </Menu>
                 </template>
             </Dropdown>
             <Button @click="start" :size="size" class="dbutton" :loading="codeRunning" :icon="h(IonIcon, { icon: play })">
-                <span>运行</span></Button>
+                <span>{{ t('run') }}</span></Button>
             <Button v-if="debugUiEnabled && debugSupported" @click="toggleDebug" :size="size" class="dbutton"
                 :type="debugRunning ? 'primary' : 'default'" :danger="debugRunning"
                 :icon="h(IonIcon, { icon: debugRunning ? stopIcon : bug })">
-                <span>{{ debugRunning ? '停止' : '调试' }}</span></Button>
+                <span>{{ debugRunning ? t('stop') : t('debug') }}</span></Button>
             <Button v-if="debugUiEnabled && debugSupported" @click="toggleCurrentBreakpoint" :size="size" class="dbutton"
                 :icon="h(IonIcon, { icon: ellipseOutline })">
-                <span>断点</span></Button>
+                <span>{{ t('breakpoint') }}</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowUndo })"
-                @click="undo"><span>撤销</span></Button>
+                @click="undo"><span>{{ t('undo') }}</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowRedo })"
-                @click="redo"><span>重做</span></Button>
+                @click="redo"><span>{{ t('redo') }}</span></Button>
             <Button :size="size" class="dbutton" @click="saveFile"
-                :icon="h(IonIcon, { icon: save })"><span>保存</span></Button>
+                :icon="h(IonIcon, { icon: save })"><span>{{ t('save') }}</span></Button>
         </Space.Compact>
         <DebugPanel />
     </div>
@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { IonIcon, IonMenuToggle } from "@ionic/vue";
 import { ref, h, computed } from "vue";
+import { t } from "../core/i18n";
 import {
     save, arrowUndo, arrowRedo,
     play, pencil, document, menu, bug, stopCircle as stopIcon, ellipseOutline,
@@ -94,7 +95,7 @@ const fileType = ref<FileType>(FileType.Directory);
 const filePickerOpen = ref<boolean>(false);
 const foldAll = ref<boolean>(false);
 const size = ref<SizeType>("middle");
-const editMenu: string[] = ["查找/替换", "跳转", "折叠/展开", "执行命令"];
+const editMenu = computed(() => [t('findReplace'), t('gotoLine'), t('foldAll'), t('runCommand')]);
 const onEditMenuClick: MenuProps["onClick"] = async ({ key }) => {
     switch (key as number) {
         case 0:
@@ -116,7 +117,7 @@ const onEditMenuClick: MenuProps["onClick"] = async ({ key }) => {
             let form = enable.value ? prettierFormat : formatDocument
             form().catch((err: Error) => {
                 notification.error({
-                    message: "格式化出错！",
+                    message: t('formatError'),
                     description: err.message,
                 });
             });
@@ -134,10 +135,10 @@ async function start() {
             nativeApp.runCode(document).catch((e: Error) => {
                 message.error(e.message);
             }).finally(() => { codeRunning.value = false })
-        } else message.error("请打开文件后运行！");
+        } else message.error(t('openFileFirst'));
         return
     }
-    message.error("没有接口！");
+    message.error(t('noApi'));
 }
 async function toggleDebug() {
     if (debugRunning.value) {
@@ -146,7 +147,7 @@ async function toggleDebug() {
     }
     const document = vscode.window.activeTextEditor?.document
     if (!document) {
-        message.error("请打开文件后再调试！")
+        message.error(t('openFileFirstDebug'))
         return
     }
     try {
@@ -168,11 +169,11 @@ async function toggleCurrentBreakpoint() {
         line = codeEditor?.getPosition()?.lineNumber ?? null
     }
     if (!line) {
-        message.error("请先把光标放在要下断点的行")
+        message.error(t('moveCursor'))
         return
     }
     await toggleBreakpoint(line)
-    message.success(`第 ${line} 行断点已切换`)
+    message.success(t('breakpointToggled', { line }))
 }
 function openFolder() {
     fileType.value = FileType.Directory;
