@@ -1,6 +1,6 @@
 ﻿{
   "name": "vscode-mobile",
-  "version": "0.18.1",
+  "version": "0.18.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

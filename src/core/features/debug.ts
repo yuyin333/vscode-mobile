@@ -52,7 +52,6 @@ let plugin: DebugPluginApi | null = null
 const editors = new Set<CodeEditor>()
 const decorationIds = new Map<CodeEditor, string[]>()
 const attached = new WeakSet<CodeEditor>()
-let menuBound = false
 
 const CSS_BREAKPOINT = 'autox-debug-breakpoint'
 const CSS_BREAKPOINT_LINE = 'autox-debug-breakpoint-line'
@@ -181,25 +180,6 @@ export function runClipboardAction(action: 'copy' | 'cut' | 'paste') {
     .getAction?.(id)?.run()
 }
 
-function bindGlobalContextMenu() {
-  if (menuBound) return
-  menuBound = true
-  window.addEventListener('contextmenu', (event) => {
-    const target = event.target as Node | null
-    if (!target) return
-    const editor = allEditors().find((e) => e.getDomNode()?.contains(target))
-    if (!editor) return
-    event.preventDefault()
-    event.stopPropagation()
-    activeEditor = editor
-    const point = (editor as unknown as {
-      getTargetAtClientPoint?: (x: number, y: number) => { position?: monaco.Position } | null
-    }).getTargetAtClientPoint?.(event.clientX, event.clientY)
-    if (point?.position) editor.setPosition(point.position)
-    touchMenu.value = { x: event.clientX, y: event.clientY }
-  }, true)
-}
-
 function attachEditor(editor: CodeEditor) {
   if (attached.has(editor)) return
   attached.add(editor)
@@ -213,10 +193,18 @@ function attachEditor(editor: CodeEditor) {
   editor.onDidFocusEditorWidget?.(() => { activeEditor = editor })
   // 长按（Android 触发 contextmenu）弹我们自己的菜单：
   // VS Code 自带菜单里全是 Go to Definition / Refactor 这类手机上用不到的东西，
-  // 而「选择单词/整行/全选」在触屏上才是刚需。
-  // 必须挂在 window 的捕获阶段：VS Code 自己在 document 捕获阶段就处理了 contextmenu，
-  // 挂在编辑器节点上已经太晚，拦不住。
-  bindGlobalContextMenu()
+  // 而「选择单词/整行/全选」在触屏上才是刚需。捕获阶段拦掉原生菜单。
+  const domNode = editor.getDomNode()
+  domNode?.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    activeEditor = editor
+    const target = (editor as unknown as {
+      getTargetAtClientPoint?: (x: number, y: number) => { position?: monaco.Position } | null
+    }).getTargetAtClientPoint?.(event.clientX, event.clientY)
+    if (target?.position) editor.setPosition(target.position)
+    touchMenu.value = { x: event.clientX, y: event.clientY }
+  }, true)
   editor.onMouseDown((e) => {
     // 手机上没有鼠标悬停提示，glyph margin 又窄，行号栏也一起当作断点开关
     const type = e.target.type
