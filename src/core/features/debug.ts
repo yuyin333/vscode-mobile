@@ -36,10 +36,10 @@ export interface DebugStopped {
 export const debugSupported = ref(false)
 /**
  * 是否在工具栏显示调试入口。
- * 端到端还没跑通（当前卡在「拿不到当前文档路径 → 断点存不下来」），
- * 在验证通过前保持关闭，避免用户看到一个点了没反应的按钮。
+ * 已真机跑通：断点命中 → eval → 单步 → 继续。
+ * 原生 Debugger 只能跑在脚本进程，主进程经 ScriptBinder 转发 + 250ms 轮询暂停状态。
  */
-export const debugUiEnabled = ref(false)
+export const debugUiEnabled = ref(true)
 export const debugRunning = ref(false)
 export const debugStopped = ref<DebugStopped | null>(null)
 export const debugValue = ref('')
@@ -259,6 +259,19 @@ export async function setupDebug(): Promise<void> {
     debugStopped.value = null
     refreshDebugDecorations()
   })
+
+  // 打开文件后才创建编辑器，且 setup_monaco 可能比它晚；等编辑器出现再画一次，
+  // 否则上次留下的断点要等用户手动点一下才显示
+  let tries = 0
+  const timer = setInterval(() => {
+    tries++
+    if (allEditors().length > 0) {
+      refreshDebugDecorations()
+      clearInterval(timer)
+      return
+    }
+    if (tries > 60) clearInterval(timer)
+  }, 1000)
 }
 
 void setupDebug()
