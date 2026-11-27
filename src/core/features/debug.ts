@@ -262,3 +262,33 @@ export async function setupDebug(): Promise<void> {
 }
 
 void setupDebug()
+
+// ---------------------------------------------------------------------------
+// 真机排查钩子：编辑器的问题（gutter 命中、当前文档路径）只靠截图猜代价太高，
+// debug 包的 WebView 已开 CDP，这里把状态和动作暴露到 window，便于
+// `node tools/cdp_eval.mjs "__autoxDebug.state()"` 直接看。
+// 不带任何敏感信息，只读编辑器内部状态。
+// ---------------------------------------------------------------------------
+;(window as any).__autoxDebug = {
+  state: () => ({
+    supported: debugSupported.value,
+    uiEnabled: debugUiEnabled.value,
+    running: debugRunning.value,
+    stopped: debugStopped.value,
+    breakpoints: debugBreakpoints.value,
+    path: currentPath(),
+    registeredEditors: editors.size,
+    monacoEditors: monaco.editor.getEditors().length,
+    models: monaco.editor.getModels().map((m) => ({ scheme: m.uri.scheme, path: m.uri.path })),
+    activePath: vscode.window.activeTextEditor?.document.uri.path ?? null,
+    documents: vscode.workspace.textDocuments.map((d) => ({
+      scheme: d.uri.scheme, path: d.uri.path, dirty: d.isDirty,
+    })),
+  }),
+  toggle: (line: number) => toggleBreakpoint(line),
+  start: (path?: string) => startDebug(path),
+  stop: () => stopDebug(),
+  step: (action: 'resume' | 'stepOver' | 'stepInto' | 'stepOut') => step(action),
+  evaluate: (expr: string) => evaluate(expr),
+}
+
