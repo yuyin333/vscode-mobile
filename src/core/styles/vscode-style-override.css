@@ -14,3 +14,17 @@
 .line-numbers {
     font-size: 12px;
 }
+/* 断点圆点（glyph margin）与当前暂停行高亮，由 features/debug.ts 的装饰器挂上 */
+.autox-debug-breakpoint {
+    background-color: #e51400;
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    margin-left: 5px;
+    margin-top: 4px;
+}
+
+.autox-debug-current-line {
+    background-color: rgba(255, 200, 0, 0.28);
+    outline: 1px solid rgba(230, 160, 0, 0.55);
+}

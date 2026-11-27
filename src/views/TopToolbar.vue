@@ -32,6 +32,10 @@
             </Dropdown>
             <Button @click="start" :size="size" class="dbutton" :loading="codeRunning" :icon="h(IonIcon, { icon: play })">
                 <span>运行</span></Button>
+            <Button v-if="debugSupported" @click="toggleDebug" :size="size" class="dbutton"
+                :type="debugRunning ? 'primary' : 'default'" :danger="debugRunning"
+                :icon="h(IonIcon, { icon: debugRunning ? stopIcon : bug })">
+                <span>{{ debugRunning ? '停止' : '调试' }}</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowUndo })"
                 @click="undo"><span>撤销</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowRedo })"
@@ -39,6 +43,7 @@
             <Button :size="size" class="dbutton" @click="saveFile"
                 :icon="h(IonIcon, { icon: save })"><span>保存</span></Button>
         </Space.Compact>
+        <DebugPanel />
     </div>
 </template>
 <script setup lang="ts">
@@ -46,7 +51,7 @@ import { IonIcon, IonMenuToggle } from "@ionic/vue";
 import { ref, h, computed } from "vue";
 import {
     save, arrowUndo, arrowRedo,
-    play, pencil, document, menu,
+    play, pencil, document, menu, bug, stopCircle as stopIcon,
 } from "ionicons/icons";
 import { enableTopToolbar, rootPath } from "../core/appConfigs";
 import type { SizeType } from "ant-design-vue/es/config-provider";
@@ -67,10 +72,12 @@ import {
 } from "ant-design-vue";
 import * as vscode from "vscode";
 import FilePicker from "./FilePicker.vue";
+import DebugPanel from "./DebugPanel.vue";
 import { FileType } from "vscode";
 import * as monaco from "monaco-editor";
 import { prettierFormat, enable } from "@/core/tools/prettier";
 import { getNativeApp } from "../core/native"
+import { debugSupported, debugRunning, startDebug, stopDebug } from "../core/features/debug"
 
 const style = computed(() => {
     return {
@@ -128,6 +135,22 @@ async function start() {
         return
     }
     message.error("没有接口！");
+}
+async function toggleDebug() {
+    if (debugRunning.value) {
+        await stopDebug()
+        return
+    }
+    const document = vscode.window.activeTextEditor?.document
+    if (!document) {
+        message.error("请打开文件后再调试！")
+        return
+    }
+    try {
+        await startDebug(document.uri.path)
+    } catch (e) {
+        message.error((e as Error).message)
+    }
 }
 function openFolder() {
     fileType.value = FileType.Directory;
