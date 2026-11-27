@@ -162,7 +162,9 @@ export async function toggleBreakpoint(line: number, path = currentPath()) {
   const next = enabled ? [...list, line].sort((a, b) => a - b) : list.filter((l) => l !== line)
   debugBreakpoints.value = { ...debugBreakpoints.value, [path]: next }
   refreshDebugDecorations()
-  if (plugin && debugRunning.value) {
+  // 不论是否在运行都同步给原生：脚本进程里保留一份，start 时少一次往返；
+  // 脚本进程没起来时原生会吞掉（debug.ts 的 catch），断点仍以 web 侧为准
+  if (plugin) {
     plugin.toggleBreakpoint(JSON.stringify({ line, enabled })).catch(() => { })
   }
 }
