@@ -23,6 +23,7 @@ import './features/userConfiguration'
 import './features/filesystem'
 import './features/customView'
 import './features/intellisense'
+import './features/draft'
 import './native'
 
 import { onExtHostInitialized } from 'vscode/extensions'
