@@ -4,7 +4,6 @@ import { useStorage } from '@vueuse/core'
 import * as monaco from 'monaco-editor'
 import { isSupported, loadPlugin } from '../native/autox'
 import getAutoxBridge from '../native/autox/bridge.d'
-import { t } from '../i18n'
 
 type CodeEditor = monaco.editor.ICodeEditor
 
@@ -120,30 +119,6 @@ function allEditors(): CodeEditor[] {
   return [...set]
 }
 
-function addEditorAction(
-  editor: CodeEditor,
-  id: string,
-  label: string,
-  order: number,
-  run: () => void,
-) {
-  const target = editor as unknown as {
-    addAction?: (descriptor: {
-      id: string
-      label: string
-      contextMenuGroupId?: string
-      contextMenuOrder?: number
-      run: () => void
-    }) => unknown
-  }
-  if (typeof target.addAction !== 'function') return
-  try {
-    target.addAction({ id, label, contextMenuGroupId: '1_modification', contextMenuOrder: order, run })
-  } catch (e) {
-    console.warn('addAction failed:', id, e)
-  }
-}
-
 function attachEditor(editor: CodeEditor) {
   if (attached.has(editor)) return
   attached.add(editor)
@@ -154,29 +129,6 @@ function attachEditor(editor: CodeEditor) {
   })
   // 换文件后要重画：断点是按 path 存的
   editor.onDidChangeModel(() => refreshDebugDecorations())
-  // 长按菜单缺「按词/按行/全选」：手机上没有 Shift+方向键，这几个是最常用的。
-  // workbench 里的编辑器不一定是 IStandaloneCodeEditor（addAction 不在 ICodeEditor 类型上），
-  // 所以运行时判断一下，没有就静默跳过（不影响其它功能）。
-  addEditorAction(editor, 'autox.selectWord', t('selectWord'), 0.5, () => {
-    const position = editor.getPosition()
-    const model = editor.getModel()
-    if (!position || !model) return
-    const word = model.getWordAtPosition(position)
-    if (word) {
-      editor.setSelection(new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn))
-    }
-  })
-  addEditorAction(editor, 'autox.selectLine', t('selectLine'), 0.6, () => {
-    const position = editor.getPosition()
-    const model = editor.getModel()
-    if (!position || !model) return
-    const column = model.getLineMaxColumn(position.lineNumber)
-    editor.setSelection(new monaco.Range(position.lineNumber, 1, position.lineNumber, column))
-  })
-  addEditorAction(editor, 'autox.selectAll', t('selectAll'), 0.7, () => {
-    const model = editor.getModel()
-    if (model) editor.setSelection(model.getFullModelRange())
-  })
   editor.onMouseDown((e) => {
     // 手机上没有鼠标悬停提示，glyph margin 又窄，行号栏也一起当作断点开关
     const type = e.target.type
