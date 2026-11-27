@@ -39,6 +39,9 @@ const zh: Record<string, string> = {
     stepOut: '跳出',
     evalPlaceholder: '表达式，如 auto.device.width',
     evaluate: '求值',
+    selectWord: '选择单词',
+    selectLine: '选择整行',
+    selectAll: '全选',
 }
 
 const en: Record<string, string> = {
@@ -73,6 +76,9 @@ const en: Record<string, string> = {
     stepOut: 'Step Out',
     evalPlaceholder: 'Expression, e.g. auto.device.width',
     evaluate: 'Eval',
+    selectWord: 'Select Word',
+    selectLine: 'Select Line',
+    selectAll: 'Select All',
 }
 
 const dict = appLanguage === 'zh' ? zh : en
