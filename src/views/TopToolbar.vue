@@ -36,6 +36,9 @@
                 :type="debugRunning ? 'primary' : 'default'" :danger="debugRunning"
                 :icon="h(IonIcon, { icon: debugRunning ? stopIcon : bug })">
                 <span>{{ debugRunning ? '停止' : '调试' }}</span></Button>
+            <Button v-if="debugSupported" @click="toggleCurrentBreakpoint" :size="size" class="dbutton"
+                :icon="h(IonIcon, { icon: ellipseOutline })">
+                <span>断点</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowUndo })"
                 @click="undo"><span>撤销</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowRedo })"
@@ -51,7 +54,7 @@ import { IonIcon, IonMenuToggle } from "@ionic/vue";
 import { ref, h, computed } from "vue";
 import {
     save, arrowUndo, arrowRedo,
-    play, pencil, document, menu, bug, stopCircle as stopIcon,
+    play, pencil, document, menu, bug, stopCircle as stopIcon, ellipseOutline,
 } from "ionicons/icons";
 import { enableTopToolbar, rootPath } from "../core/appConfigs";
 import type { SizeType } from "ant-design-vue/es/config-provider";
@@ -77,7 +80,7 @@ import { FileType } from "vscode";
 import * as monaco from "monaco-editor";
 import { prettierFormat, enable } from "@/core/tools/prettier";
 import { getNativeApp } from "../core/native"
-import { debugSupported, debugRunning, startDebug, stopDebug } from "../core/features/debug"
+import { debugSupported, debugRunning, startDebug, stopDebug, toggleBreakpoint } from "../core/features/debug"
 
 const style = computed(() => {
     return {
@@ -151,6 +154,15 @@ async function toggleDebug() {
     } catch (e) {
         message.error((e as Error).message)
     }
+}
+async function toggleCurrentBreakpoint() {
+    const position = vscode.window.activeTextEditor?.selection.active
+    if (!position) {
+        message.error("请先把光标放在要下断点的行")
+        return
+    }
+    // vscode.Position 是 0-based，原生断点行号是 1-based
+    await toggleBreakpoint(position.line + 1)
 }
 function openFolder() {
     fileType.value = FileType.Directory;

@@ -46,6 +46,7 @@ const editors = new Set<monaco.editor.ICodeEditor>()
 const decorationIds = new Map<monaco.editor.ICodeEditor, string[]>()
 
 const CSS_BREAKPOINT = 'autox-debug-breakpoint'
+const CSS_BREAKPOINT_LINE = 'autox-debug-breakpoint-line'
 const CSS_CURRENT = 'autox-debug-current-line'
 
 function pathOf(model: monaco.editor.ITextModel | null): string {
@@ -57,10 +58,13 @@ function decorationsFor(editor: monaco.editor.ICodeEditor) {
   const path = pathOf(model)
   const result: monaco.editor.IModelDeltaDecoration[] = []
   for (const line of debugBreakpoints.value[path] ?? []) {
+    // 整行底色 +（若可用）glyph 圆点：手机屏上 glyph margin 往往不可见/太窄，
+    // 只靠圆点用户看不出断点到底有没有下上
     result.push({
       range: new monaco.Range(line, 1, line, 1),
       options: {
-        isWholeLine: false,
+        isWholeLine: true,
+        className: CSS_BREAKPOINT_LINE,
         glyphMarginClassName: CSS_BREAKPOINT,
         stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
       },
