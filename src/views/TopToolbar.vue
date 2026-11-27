@@ -156,13 +156,23 @@ async function toggleDebug() {
     }
 }
 async function toggleCurrentBreakpoint() {
+    // vscode.window.activeTextEditor 在这个 fork 里不一定有值，
+    // 回退到 monaco 自己的编辑器光标位置（monaco 的行号本来就是 1-based）
+    let line: number | null = null
     const position = vscode.window.activeTextEditor?.selection.active
-    if (!position) {
+    if (position) {
+        line = position.line + 1
+    } else {
+        const editors = monaco.editor.getEditors()
+        const codeEditor = editors.find((e) => e.hasTextFocus()) ?? editors[0]
+        line = codeEditor?.getPosition()?.lineNumber ?? null
+    }
+    if (!line) {
         message.error("请先把光标放在要下断点的行")
         return
     }
-    // vscode.Position 是 0-based，原生断点行号是 1-based
-    await toggleBreakpoint(position.line + 1)
+    await toggleBreakpoint(line)
+    message.success(`第 ${line} 行断点已切换`)
 }
 function openFolder() {
     fileType.value = FileType.Directory;
