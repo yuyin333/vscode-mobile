@@ -42,8 +42,9 @@ export const debugValue = ref('')
 export const debugBreakpoints = useStorage<Record<string, number[]>>('debugBreakpoints', {})
 
 let plugin: DebugPluginApi | null = null
-const editors = new Set<monaco.editor.ICodeEditor>()
-const decorationIds = new Map<monaco.editor.ICodeEditor, string[]>()
+const editors = new Set<CodeEditor>()
+const decorationIds = new Map<CodeEditor, string[]>()
+const attached = new WeakSet<CodeEditor>()
 
 const CSS_BREAKPOINT = 'autox-debug-breakpoint'
 const CSS_BREAKPOINT_LINE = 'autox-debug-breakpoint-line'
@@ -86,7 +87,7 @@ function decorationsFor(editor: monaco.editor.ICodeEditor) {
 }
 
 export function refreshDebugDecorations() {
-  for (const editor of editors) {
+  for (const editor of allEditors()) {
     if (!editor.getModel()) continue
     const previous = decorationIds.get(editor) ?? []
     decorationIds.set(editor, editor.deltaDecorations(previous, decorationsFor(editor)))
@@ -96,7 +97,7 @@ export function refreshDebugDecorations() {
 function revealStoppedLine() {
   const stopped = debugStopped.value
   if (!stopped) return
-  for (const editor of editors) {
+  for (const editor of allEditors()) {
     const path = pathOf(editor.getModel())
     if (path && stopped.url.endsWith(path)) {
       editor.revealLineInCenter(stopped.line)
@@ -104,13 +105,24 @@ function revealStoppedLine() {
   }
 }
 
-/** setup_monaco 里每创建一个编辑器就注册进来，用来画断点/当前行 */
-export function registerDebugEditor(editor: monaco.editor.ICodeEditor) {
+/** 已注册过监听器的编辑器；setup_monaco 的动态 import 可能晚于首次创建，所以这里兜底 */
+function allEditors(): CodeEditor[] {
+  const set = new Set<CodeEditor>(editors)
+  for (const e of monaco.editor.getEditors()) set.add(e)
+  for (const e of set) attachEditor(e)
+  return [...set]
+}
+
+function attachEditor(editor: CodeEditor) {
+  if (attached.has(editor)) return
+  attached.add(editor)
   editors.add(editor)
   editor.onDidDispose(() => {
     editors.delete(editor)
     decorationIds.delete(editor)
   })
+  // 换文件后要重画：断点是按 path 存的
+  editor.onDidChangeModel(() => refreshDebugDecorations())
   editor.onMouseDown((e) => {
     // 手机上没有鼠标悬停提示，glyph margin 又窄，行号栏也一起当作断点开关
     const type = e.target.type
@@ -122,11 +134,25 @@ export function registerDebugEditor(editor: monaco.editor.ICodeEditor) {
       if (line) void toggleBreakpoint(line)
     }
   })
+}
+
+/** setup_monaco 里每创建一个编辑器就注册进来，用来画断点/当前行 */
+export function registerDebugEditor(editor: CodeEditor) {
+  attachEditor(editor)
   refreshDebugDecorations()
 }
 
+/**
+ * 取当前文件路径。
+ * 这个 fork 里 `vscode.window.activeTextEditor` 不一定可靠（workbench 只挂了一个编辑器实例），
+ * 拿到空串会让断点存不下来，所以逐级回退到 monaco 的编辑器/模型。
+ */
 function currentPath(): string {
-  return vscode.window.activeTextEditor?.document.uri.path ?? ''
+  const active = vscode.window.activeTextEditor?.document.uri.path
+  if (active) return active
+  const list = monaco.editor.getEditors()
+  const focused = list.find((e) => e.hasTextFocus()) ?? list[0]
+  return pathOf(focused?.getModel() ?? null)
 }
 
 export async function toggleBreakpoint(line: number, path = currentPath()) {
