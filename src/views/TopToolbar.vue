@@ -47,7 +47,6 @@
                 :icon="h(IonIcon, { icon: save })"><span>{{ t('save') }}</span></Button>
         </Space.Compact>
         <DebugPanel />
-        <TouchMenu />
     </div>
 </template>
 <script setup lang="ts">
@@ -78,7 +77,6 @@ import {
 import * as vscode from "vscode";
 import FilePicker from "./FilePicker.vue";
 import DebugPanel from "./DebugPanel.vue";
-import TouchMenu from "./TouchMenu.vue";
 import { FileType } from "vscode";
 import * as monaco from "monaco-editor";
 import { prettierFormat, enable } from "@/core/tools/prettier";

@@ -120,64 +120,28 @@ function allEditors(): CodeEditor[] {
   return [...set]
 }
 
-export interface TouchMenuState {
-  // 相对 WebView 视口的 CSS px
-  x: number
-  y: number
-}
-
-/** 长按菜单状态；null = 不显示 */
-export const touchMenu = ref<TouchMenuState | null>(null)
-
-/** 当前有焦点的编辑器，供长按菜单执行动作 */
-let activeEditor: CodeEditor | null = null
-
-export function getActiveEditor(): CodeEditor | null {
-  if (activeEditor && activeEditor.getModel()) return activeEditor
-  const list = monaco.editor.getEditors()
-  activeEditor = list.find((e) => e.hasTextFocus()) ?? list[0] ?? null
-  return activeEditor
-}
-
-export function closeTouchMenu() {
-  touchMenu.value = null
-}
-
-export function selectWordAtCursor() {
-  const editor = getActiveEditor()
-  const position = editor?.getPosition()
-  const model = editor?.getModel()
-  if (!editor || !position || !model) return
-  const word = model.getWordAtPosition(position)
-  if (word) {
-    editor.setSelection(new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn))
+function addEditorAction(
+  editor: CodeEditor,
+  id: string,
+  label: string,
+  order: number,
+  run: () => void,
+) {
+  const target = editor as unknown as {
+    addAction?: (descriptor: {
+      id: string
+      label: string
+      contextMenuGroupId?: string
+      contextMenuOrder?: number
+      run: () => void
+    }) => unknown
   }
-}
-
-export function selectCurrentLine() {
-  const editor = getActiveEditor()
-  const position = editor?.getPosition()
-  const model = editor?.getModel()
-  if (!editor || !position || !model) return
-  editor.setSelection(new monaco.Range(position.lineNumber, 1, position.lineNumber, model.getLineMaxColumn(position.lineNumber)))
-}
-
-export function selectAllText() {
-  const editor = getActiveEditor()
-  const model = editor?.getModel()
-  if (editor && model) editor.setSelection(model.getFullModelRange())
-}
-
-export function runClipboardAction(action: 'copy' | 'cut' | 'paste') {
-  const editor = getActiveEditor()
-  if (!editor) return
-  const id = action === 'copy'
-    ? 'editor.action.clipboardCopyAction'
-    : action === 'cut'
-      ? 'editor.action.clipboardCutAction'
-      : 'editor.action.clipboardPasteAction'
-  void (editor as unknown as { getAction?: (id: string) => { run: () => Promise<void> } | null })
-    .getAction?.(id)?.run()
+  if (typeof target.addAction !== 'function') return
+  try {
+    target.addAction({ id, label, contextMenuGroupId: '1_modification', contextMenuOrder: order, run })
+  } catch (e) {
+    console.warn('addAction failed:', id, e)
+  }
 }
 
 function attachEditor(editor: CodeEditor) {
@@ -190,21 +154,29 @@ function attachEditor(editor: CodeEditor) {
   })
   // 换文件后要重画：断点是按 path 存的
   editor.onDidChangeModel(() => refreshDebugDecorations())
-  editor.onDidFocusEditorWidget?.(() => { activeEditor = editor })
-  // 长按（Android 触发 contextmenu）弹我们自己的菜单：
-  // VS Code 自带菜单里全是 Go to Definition / Refactor 这类手机上用不到的东西，
-  // 而「选择单词/整行/全选」在触屏上才是刚需。捕获阶段拦掉原生菜单。
-  const domNode = editor.getDomNode()
-  domNode?.addEventListener('contextmenu', (event) => {
-    event.preventDefault()
-    event.stopPropagation()
-    activeEditor = editor
-    const target = (editor as unknown as {
-      getTargetAtClientPoint?: (x: number, y: number) => { position?: monaco.Position } | null
-    }).getTargetAtClientPoint?.(event.clientX, event.clientY)
-    if (target?.position) editor.setPosition(target.position)
-    touchMenu.value = { x: event.clientX, y: event.clientY }
-  }, true)
+  // 长按菜单缺「按词/按行/全选」：手机上没有 Shift+方向键，这几个是最常用的。
+  // workbench 里的编辑器不一定是 IStandaloneCodeEditor（addAction 不在 ICodeEditor 类型上），
+  // 所以运行时判断一下，没有就静默跳过（不影响其它功能）。
+  addEditorAction(editor, 'autox.selectWord', t('selectWord'), 0.5, () => {
+    const position = editor.getPosition()
+    const model = editor.getModel()
+    if (!position || !model) return
+    const word = model.getWordAtPosition(position)
+    if (word) {
+      editor.setSelection(new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn))
+    }
+  })
+  addEditorAction(editor, 'autox.selectLine', t('selectLine'), 0.6, () => {
+    const position = editor.getPosition()
+    const model = editor.getModel()
+    if (!position || !model) return
+    const column = model.getLineMaxColumn(position.lineNumber)
+    editor.setSelection(new monaco.Range(position.lineNumber, 1, position.lineNumber, column))
+  })
+  addEditorAction(editor, 'autox.selectAll', t('selectAll'), 0.7, () => {
+    const model = editor.getModel()
+    if (model) editor.setSelection(model.getFullModelRange())
+  })
   editor.onMouseDown((e) => {
     // 手机上没有鼠标悬停提示，glyph margin 又窄，行号栏也一起当作断点开关
     const type = e.target.type
