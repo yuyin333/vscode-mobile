@@ -34,6 +34,12 @@ export interface DebugStopped {
 }
 
 export const debugSupported = ref(false)
+/**
+ * 是否在工具栏显示调试入口。
+ * 端到端还没跑通（当前卡在「拿不到当前文档路径 → 断点存不下来」），
+ * 在验证通过前保持关闭，避免用户看到一个点了没反应的按钮。
+ */
+export const debugUiEnabled = ref(false)
 export const debugRunning = ref(false)
 export const debugStopped = ref<DebugStopped | null>(null)
 export const debugValue = ref('')

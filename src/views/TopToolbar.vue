@@ -32,11 +32,11 @@
             </Dropdown>
             <Button @click="start" :size="size" class="dbutton" :loading="codeRunning" :icon="h(IonIcon, { icon: play })">
                 <span>运行</span></Button>
-            <Button v-if="debugSupported" @click="toggleDebug" :size="size" class="dbutton"
+            <Button v-if="debugUiEnabled && debugSupported" @click="toggleDebug" :size="size" class="dbutton"
                 :type="debugRunning ? 'primary' : 'default'" :danger="debugRunning"
                 :icon="h(IonIcon, { icon: debugRunning ? stopIcon : bug })">
                 <span>{{ debugRunning ? '停止' : '调试' }}</span></Button>
-            <Button v-if="debugSupported" @click="toggleCurrentBreakpoint" :size="size" class="dbutton"
+            <Button v-if="debugUiEnabled && debugSupported" @click="toggleCurrentBreakpoint" :size="size" class="dbutton"
                 :icon="h(IonIcon, { icon: ellipseOutline })">
                 <span>断点</span></Button>
             <Button :size="size" class="dbutton" :icon="h(IonIcon, { icon: arrowUndo })"
@@ -80,7 +80,7 @@ import { FileType } from "vscode";
 import * as monaco from "monaco-editor";
 import { prettierFormat, enable } from "@/core/tools/prettier";
 import { getNativeApp } from "../core/native"
-import { debugSupported, debugRunning, startDebug, stopDebug, toggleBreakpoint } from "../core/features/debug"
+import { debugSupported, debugRunning, debugUiEnabled, startDebug, stopDebug, toggleBreakpoint } from "../core/features/debug"
 
 const style = computed(() => {
     return {
