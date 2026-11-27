@@ -33,3 +33,9 @@
     background-color: rgba(229, 20, 0, 0.16);
     border-left: 3px solid #e51400;
 }
+/* 键盘让位：native 通过 app.onImeHeight 下发 --autox-ime-height（CSS px）。
+   用 !important 是因为 workbench 的 height 常由 JS 写成 inline style。 */
+.monaco-workbench {
+    height: calc(100% - var(--autox-ime-height, 0px)) !important;
+    max-height: calc(100% - var(--autox-ime-height, 0px)) !important;
+}

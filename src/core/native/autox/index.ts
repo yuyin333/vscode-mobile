@@ -5,10 +5,15 @@ import AutoxFileSystemProvider, { IAutoxFileSystem } from "./filesystem";
 import { IBaseApp } from "../native_interface";
 import { ref } from "vue";
 import AppController from "./AppController";
+import { applyImeHeight } from "../../features/imeInsets";
 
 getAutoxBridge().then(async (autox) => {
     autox.registerHandler('app.openFile', (data) => {
         commands.executeCommand('vscode.open', Uri.parse(`autox://${data}`));
+    })
+    // 键盘遮挡高度（设备 px）：让工作区让位并把光标滚回可视区
+    autox.registerHandler('app.onImeHeight', (data) => {
+        applyImeHeight(Number(data) || 0)
     })
     setTimeout(() => {
         autox.callHandler('app.init')
