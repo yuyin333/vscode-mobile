@@ -108,7 +108,12 @@ export function registerDebugEditor(editor: monaco.editor.ICodeEditor) {
     decorationIds.delete(editor)
   })
   editor.onMouseDown((e) => {
-    if (e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+    // 手机上没有鼠标悬停提示，glyph margin 又窄，行号栏也一起当作断点开关
+    const type = e.target.type
+    if (
+      type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+      type === monaco.editor.MouseTargetType.GUTTER_LINE_NUMBERS
+    ) {
       const line = e.target.position?.lineNumber
       if (line) void toggleBreakpoint(line)
     }
@@ -146,13 +151,20 @@ export async function startDebug(path = currentPath()) {
   if (doc?.isDirty) {
     await vscode.window.showWarningMessage('调试运行的是已保存到磁盘的内容，请先保存再调试')
   }
-  // 重新下发当前文件已有的断点（原生 stop 时会清空）
-  for (const line of debugBreakpoints.value[path] ?? []) {
-    await plugin.toggleBreakpoint(JSON.stringify({ line, enabled: true })).catch(() => { })
-  }
-  await plugin.start(JSON.stringify({ path }))
+  // 必须先置 true：短脚本可能在 start 返回前就跑完并发出 onExited，
+  // 若在 await 之后再置 true，会把已经复位成 false 的状态又改回运行中
   debugRunning.value = true
   debugStopped.value = null
+  try {
+    // 重新下发当前文件已有的断点（原生 stop 时会清空）
+    for (const line of debugBreakpoints.value[path] ?? []) {
+      await plugin.toggleBreakpoint(JSON.stringify({ line, enabled: true })).catch(() => { })
+    }
+    await plugin.start(JSON.stringify({ path }))
+  } catch (e) {
+    debugRunning.value = false
+    throw e
+  }
   refreshDebugDecorations()
 }
 
