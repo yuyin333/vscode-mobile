@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import { isSupported, loadPlugin } from '../native/autox'
+import getAutoxBridge from '../native/autox/bridge.d'
 
 /**
  * 草稿（未保存内容）兜底。
@@ -28,46 +29,49 @@ function draftPathOf(doc: vscode.TextDocument): string | null {
   return doc.uri.path
 }
 
+let plugin: DraftPlugin | null = null
+const timers = new Map<string, ReturnType<typeof setTimeout>>()
+const lastFlushed = new Map<string, string>()
+
+function cancelTimer(path: string) {
+  const timer = timers.get(path)
+  if (timer) {
+    clearTimeout(timer)
+    timers.delete(path)
+  }
+}
+
+async function flush(path: string, content: string) {
+  if (!plugin) return
+  if (content.length > MAX_DRAFT_CHARS) return
+  if (lastFlushed.get(path) === content) return
+  try {
+    await plugin.saveDraft(JSON.stringify({ path, content }))
+    lastFlushed.set(path, content)
+  } catch (e) {
+    console.warn('saveDraft failed:', path, e)
+  }
+}
+
+function schedule(doc: vscode.TextDocument) {
+  const path = draftPathOf(doc)
+  if (!path) return
+  cancelTimer(path)
+  timers.set(path, setTimeout(() => {
+    timers.delete(path)
+    if (!doc.isDirty) return
+    void flush(path, doc.getText())
+  }, DEBOUNCE_MS))
+}
+
 export async function setupDraft(): Promise<void> {
   if (!(await isSupported())) return
-  const plugin = await loadPlugin<DraftPlugin>('AppController')
-  if (typeof (plugin as any).saveDraft !== 'function') {
+  const loaded = await loadPlugin<DraftPlugin>('AppController')
+  if (typeof (loaded as any).saveDraft !== 'function') {
     console.warn('AppController.saveDraft 不可用（旧 APK），草稿功能停用')
     return
   }
-
-  const timers = new Map<string, ReturnType<typeof setTimeout>>()
-  const lastFlushed = new Map<string, string>()
-
-  const cancelTimer = (path: string) => {
-    const timer = timers.get(path)
-    if (timer) {
-      clearTimeout(timer)
-      timers.delete(path)
-    }
-  }
-
-  const flush = async (path: string, content: string) => {
-    if (content.length > MAX_DRAFT_CHARS) return
-    if (lastFlushed.get(path) === content) return
-    try {
-      await plugin.saveDraft(JSON.stringify({ path, content }))
-      lastFlushed.set(path, content)
-    } catch (e) {
-      console.warn('saveDraft failed:', path, e)
-    }
-  }
-
-  const schedule = (doc: vscode.TextDocument) => {
-    const path = draftPathOf(doc)
-    if (!path) return
-    cancelTimer(path)
-    timers.set(path, setTimeout(() => {
-      timers.delete(path)
-      if (!doc.isDirty) return
-      void flush(path, doc.getText())
-    }, DEBOUNCE_MS))
-  }
+  plugin = loaded
 
   vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document))
 
@@ -76,20 +80,35 @@ export async function setupDraft(): Promise<void> {
     if (!path) return
     cancelTimer(path)
     lastFlushed.delete(path)
-    plugin.clearDraft(JSON.stringify({ path })).catch(() => { })
+    plugin?.clearDraft(JSON.stringify({ path })).catch(() => { })
   })
 
   // 切后台/被系统回收前的最后一次机会：立刻落盘所有脏文档
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return
-    for (const doc of vscode.workspace.textDocuments) {
-      const path = draftPathOf(doc)
-      if (path && doc.isDirty) {
-        cancelTimer(path)
-        void flush(path, doc.getText())
-      }
-    }
+    void flushAllDrafts()
   })
+
+  // 原生侧「返回即释放编辑器」在销毁 WebView 前会等这个回执：
+  // 1.5s 防抖 + visibilitychange 都赶不上 Activity.finish() 的销毁时机
+  getAutoxBridge().then((bridge) => {
+    bridge.registerHandler('app.flushDrafts', (_data, callback) => {
+      flushAllDrafts().finally(() => callback && callback('ok'))
+    })
+  }).catch(() => { })
+}
+
+/** 立即把所有脏文档落一次草稿；供原生侧销毁前同步等待 */
+export async function flushAllDrafts(): Promise<void> {
+  if (!plugin) return
+  const pending: Promise<void>[] = []
+  for (const doc of vscode.workspace.textDocuments) {
+    const path = draftPathOf(doc)
+    if (!path || !doc.isDirty) continue
+    cancelTimer(path)
+    pending.push(flush(path, doc.getText()))
+  }
+  await Promise.all(pending)
 }
 
 // 与 features/intellisense 一致：import 即生效，由 core/app.ts 引入

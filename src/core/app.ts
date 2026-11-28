@@ -25,6 +25,7 @@ import './features/filesystem'
 import './features/customView'
 import './features/intellisense'
 import './features/draft'
+import './features/largeFileMode'
 import './features/debug'
 import './native'
 
