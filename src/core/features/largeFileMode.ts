@@ -3,38 +3,16 @@ import {
   getUserConfiguration,
   updateUserConfiguration,
 } from '@codingame/monaco-vscode-configuration-service-override'
+import { isLargeDocument, LARGE_FILE_LINES, LARGE_FILE_OVERRIDES } from './largeFileRules'
 
 /**
- * 大文件模式。
- *
- * 手机 WebView 的内存/CPU 都紧张：几千行以上的脚本一旦开启语义高亮、代码折叠、
- * 缩进参考线这些「每次编辑都要重算」的特性，输入会明显掉帧甚至卡住。
- * 超过阈值时临时关掉这些开销大户，离开大文件后按原样恢复。
- *
- * 阈值 5000 行：2000 行太激进，正常业务脚本也会过线；5000 行以上才真的开始难编辑。
+ * 大文件模式：超过 LARGE_FILE_LINES 行时临时关掉语义高亮、代码折叠、codeLens、
+ * 缩进参考线、minimap、breadcrumbs，离开大文件后按快照整体还原。
+ * 判定规则在 largeFileRules.ts（纯函数，有单测）。
  */
-const LARGE_FILE_LINES = 5000
-
-/** 只关「持续计算」的项：语法高亮、折行、字号这些静态渲染的保留，不然没法读代码 */
-const OVERRIDES: Record<string, unknown> = {
-  'editor.semanticHighlighting.enabled': false,
-  'editor.occurrencesHighlight': false,
-  'editor.codeLens': false,
-  'editor.folding': false,
-  'editor.guides.indentation': false,
-  'editor.minimap.enabled': false,
-  'breadcrumbs.enabled': false,
-}
 
 /** 进入大文件前的完整配置快照；null 表示当前不在大文件模式 */
 let savedConfig: string | null = null
-
-function isLargeDocument(doc: vscode.TextDocument | undefined): boolean {
-  if (!doc) return false
-  // 只看用户脚本；settings.json 之类不参与
-  if (doc.uri.scheme !== 'autox') return false
-  return doc.lineCount > LARGE_FILE_LINES
-}
 
 async function sync(): Promise<void> {
   const doc = vscode.window.activeTextEditor?.document
@@ -45,7 +23,7 @@ async function sync(): Promise<void> {
       // 快照整份配置而不是逐个键：离开时整体写回，避免"原本没设过的键"留下痕迹
       savedConfig = await getUserConfiguration()
       const config = JSON.parse(savedConfig)
-      Object.assign(config, OVERRIDES)
+      Object.assign(config, LARGE_FILE_OVERRIDES)
       await updateUserConfiguration(JSON.stringify(config, null, 2))
       vscode.window.setStatusBarMessage(
         `大文件模式：${doc!.lineCount} 行，已关闭语义高亮/代码折叠等以保持流畅`,
