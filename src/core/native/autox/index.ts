@@ -12,6 +12,11 @@ getAutoxBridge().then(async (autox) => {
     autox.registerHandler('app.openFile', (data) => {
         commands.executeCommand('vscode.open', Uri.parse(`autox://${data}`));
     })
+    // 原生没有指定要打开的文件（用户点「编辑」新建）：起一个 Untitled。
+    // 否则 VS Code 停在欢迎页 —— 没有编辑区可聚焦，点哪里都不会弹软键盘。
+    autox.registerHandler('app.newFile', () => {
+        void commands.executeCommand('workbench.action.files.newUntitledFile');
+    })
     // 键盘遮挡高度（设备 px）：让工作区让位并把光标滚回可视区
     autox.registerHandler('app.onImeHeight', (data) => {
         applyImeHeight(Number(data) || 0)
